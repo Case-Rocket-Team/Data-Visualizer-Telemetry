@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 import ctypes
+import threading
 import serial.tools.list_ports
 import win32serviceutil as svc
 import paho.mqtt.client as mqtt
@@ -50,7 +51,8 @@ def connectPort(): #Connects to selected COM port
         button['state'] = tk.DISABLED
         button2['state'] = tk.NORMAL
         run2 = '#51B7EB'
-        root.update()
+        thread = threading.Thread(target=readData)
+        thread.start()
     except serial.SerialException:
         messagebox.showerror("Error","Serial Error")
 
@@ -74,7 +76,9 @@ def startServices(): #Starts Grafana and Mosquitto Broker
     svc.StartService("grafana")
     svc.StartService("mosquitto")
     serverStat = "Running"
+    run1 = '#51B7EB'
     messagebox.showinfo("Info","Services Started!")
+    
     
 def stopServices():#Stops Grafana and Mosquitto Broker
     print("Stopping Services...")
@@ -97,6 +101,15 @@ def checkIfRunning():
         bothRunning = False
     else:
         bothRunning = True
+
+def handle_data(data):
+    print(data)
+
+def readData():
+    while True:
+        serData = ser.readline()
+        handle_data(serData)
+
 
 #Logic that doesn't quite work yet
 if bothRunning == True:
