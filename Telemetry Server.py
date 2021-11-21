@@ -7,6 +7,7 @@ import threading
 import serial.tools.list_ports
 import win32serviceutil as svc
 import paho.mqtt.client as mqtt
+import threading
 from elevate import elevate
 
 elevate(show_console=False) #Launches UAC prompt to run program as admin, lets us adjust Windows services (e.g. Grafana, Mosquitto)
@@ -15,20 +16,22 @@ elevate(show_console=False) #Launches UAC prompt to run program as admin, lets u
 ports = serial.tools.list_ports.comports()
 ser = serial.Serial()
 serverStat = "Not Running"
-serialStatus = "Connected"
-serverStat = "Running"
+serialStatus = "Not Connected"
 bothRunning = None
-run2 = None
-
+appID = 'CRT.Telemetry.alpha1'
+run2 = '#D13539'
+broker="127.0.0.1" #MQTT Server
+port=1883 #Server Port
 goodBauds = (9600,14400,19200,115200)
 
+#Freaky Windows Shit
+ctypes.windll.shcore.SetProcessDpiAwareness(1) #Enables support for Hi-DPI displays.
+ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appID) #Wizardry to make the taskbar icon to the main icon
 
 #GUI Specific declarations
-ctypes.windll.shcore.SetProcessDpiAwareness(1) #Enables support for Hi-DPI displays.
-
 root = tk.Tk()
 widget_var = tk.StringVar()
-buadsel = tk.StringVar()
+baudsel = tk.StringVar()
 
 big_frame = ttk.Frame(root)
 big_frame.pack(fill="both", expand=True)
@@ -41,6 +44,7 @@ def refreshPorts(): #Checks available COM Ports and lists in dropdown
     ports = serial.tools.list_ports.comports()
     COMdropdown['values'] = ports
     COMdropdown.current(0)
+
 def connectPort(): #Connects to selected COM port
     comnum = COMdropdown.get()
     ser.baudrate = BaudSelect.get()
@@ -50,21 +54,20 @@ def connectPort(): #Connects to selected COM port
         messagebox.showinfo("Info","Connected successfully to " + comnum[0:4])
         button['state'] = tk.DISABLED
         button2['state'] = tk.NORMAL
-        run2 = '#51B7EB'
+        SerialConnected['foreground'] = '51B7EB'
         thread = threading.Thread(target=readData)
         thread.start()
     except serial.SerialException:
         messagebox.showerror("Error","Serial Error")
 
-
-def closeSerial(): 
+def closeSerial(): #Disconnects from serial
     button2['state'] = tk.DISABLED
     button['state'] = tk.NORMAL
     comnum = COMdropdown.get()
     try:
         ser.close()
         messagebox.showinfo("Info","Disconnected successfully from " + comnum[0:4])
-        run2 = 'red'
+        run2 = '#D13539'
     except serial.SerialException:
         messagebox.showerror("Error","Unable to close serial connection")  
 
@@ -72,12 +75,16 @@ def defaultBaud(): #Sets default baud rate, could do some trickery here to deter
     BaudSelect.current(1) 
 
 def startServices(): #Starts Grafana and Mosquitto Broker
-    print("Starting Services...")
-    svc.StartService("grafana")
-    svc.StartService("mosquitto")
-    serverStat = "Running"
-    run1 = '#51B7EB'
-    messagebox.showinfo("Info","Services Started!")
+    try:
+        print("Starting Services...")
+        svc.StartService("grafana")
+        svc.StartService("mosquitto")
+        messagebox.showinfo("Info","Services Started!")
+        serverStat = "Running"
+        SerialConnected.config(text="Serial Connected: Connected",foreground="51B7EB")
+    except:
+        messagebox.showerror("Error","Unable to start services")
+    
     
     
 def stopServices():#Stops Grafana and Mosquitto Broker
@@ -90,10 +97,10 @@ def stopServices():#Stops Grafana and Mosquitto Broker
     except:
         messagebox.showerror("Error","Unable to stop services")
 
-def setIcon(): #Sets icon. Only doing this as a function b/c Tkinter is a bitch
+def setIcon(): #Sets icon
     root.iconbitmap('C:\\Users\\catsl\\Documents\\Telemtry Dash\\icon.ico')
 
-def checkIfRunning():
+def checkIfRunning(): #Attempts to see if services are already running. Doesn't work yet
     try: 
         svc.QueryServiceStatus('grafana')
         svc.QueryServiceStatus('mosquitto')
@@ -102,20 +109,26 @@ def checkIfRunning():
     else:
         bothRunning = True
 
-def handle_data(data):
+def handle_data(data): #Processes serial data
     print(data)
 
-def readData():
+def readData(): #Reads serial data
     while True:
         serData = ser.readline()
         handle_data(serData)
 
+def on_publish(client,userdata,result): #Callback function for MQTT
+    print("data published \n")
+    pass
 
 #Logic that doesn't quite work yet
 if bothRunning == True:
     run1 = '#51B7EB'
 else:
-    run1 = 'red'
+    run1 = '#D13539'
+
+
+
 
 #Create UI
 root.tk.call("source", "C:\\Users\\catsl\\Documents\\Telemtry Dash\\Sun-Valley-ttk-theme-master\sun-valley.tcl")
@@ -144,20 +157,21 @@ button5 = ttk.Button(big_frame, image = photo,command=refreshPorts,style="Accent
 button5.place(x=405,y=25)
 
 COMdropdown = ttk.Combobox(big_frame,textvariable=widget_var)
-BaudSelect = ttk.Combobox(big_frame,textvariable=buadsel)
+BaudSelect = ttk.Combobox(big_frame,textvariable=baudsel)
 
 MQTTConnected = ttk.Label(root, text="MQTT Server: " + serverStat,foreground=run1)
 GrafConnected = ttk.Label(root, text="Grafana Service: " + serverStat,foreground=run1)
-SerialConnected = ttk.Label(root, text="Serial Connected: " + serialStatus,foreground=run1)
+SerialConnected = ttk.Label(root, text="Serial Connected: " + serialStatus,foreground=run2)
 
-COMdropdown['values'] = ports
+COMdropdown['values'] = ports #Populates COM Dropdown with available ports
+
 try:
-    COMdropdown.current(0) #attempts to list available port as first option
+    COMdropdown.current(0) #Attempts to list available port as first option
 except:
-    COMdropdown.set("Select a COM Port & Press Connect")
+    COMdropdown.set("Select COM Port")
 
 COMdropdown['state'] = 'readonly'
-BaudSelect.set("Select a baud rate")
+BaudSelect.set("Select Baud Rate")
 BaudSelect['values'] = goodBauds
 BaudSelect['state'] = 'readonly'
 
