@@ -127,9 +127,6 @@ if bothRunning == True:
 else:
     run1 = '#D13539'
 
-
-
-
 #Create UI
 root.tk.call("source", "C:\\Users\\catsl\\Documents\\Telemtry Dash\\Sun-Valley-ttk-theme-master\sun-valley.tcl")
 root.tk.call("set_theme", "dark")
