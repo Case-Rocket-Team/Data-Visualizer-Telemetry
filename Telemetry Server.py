@@ -80,10 +80,8 @@ def startServices(): #Starts Grafana and Mosquitto Broker
         svc.StartService("grafana")
         svc.StartService("mosquitto")
         messagebox.showinfo("Info","Services Started!")
-        serverStat = "Running"
-        SerialConnected.config(text="Serial Connected: Connected",foreground="51B7EB")
     except:
-        messagebox.showerror("Error","Unable to start services")
+        messagebox.showerror("Error","Unable to start services or services already running.")
     
     
     
@@ -95,7 +93,7 @@ def stopServices():#Stops Grafana and Mosquitto Broker
         serverStat = "Not Running"
         messagebox.showinfo("Info","Services Stopped!")
     except:
-        messagebox.showerror("Error","Unable to stop services")
+        messagebox.showerror("Error","Unable to stop services or services already stopped.")
 
 def setIcon(): #Sets icon
     root.iconbitmap('C:\\Users\\catsl\\Documents\\Telemtry Dash\\icon.ico')
