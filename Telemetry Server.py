@@ -174,7 +174,7 @@ def handle_data(data): #Processes serial data
 
 def readData(): #Reads serial data
     while True:
-        serData = ser.readline()
+        serData = ser.readline().decode('utf-8')
         handle_data(serData)
 
 def on_publish(client,userdata,result): #Callback function for MQTT
