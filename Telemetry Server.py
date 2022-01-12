@@ -74,8 +74,10 @@ def refreshPorts(): #Checks available COM Ports and lists in dropdown
     #COMdropdown.current(0)
     try:
         COMdropdown.current(0) #Attempts to list available port as first option
+        BaudSelect.current(0)
     except:
         COMdropdown.set("Select COM Port")
+        BaudSelect.set("Select Baud Rate")
     ui.after(1000,refreshPorts)
 
 def connectPort(): #Connects to selected COM port
@@ -89,7 +91,7 @@ def connectPort(): #Connects to selected COM port
         button2['state'] = tk.NORMAL
         SerialConnected['foreground'] = '#51B7EB'
         SerialConnected['text'] = 'Serial: Connected'
-        thread = threading.Thread(target=readData, daemon=True)
+        thread = threading.Thread(target=readData, daemon=False)
         thread.start()
     except serial.SerialException as e:
         messagebox.showerror("Serial Error",e)
@@ -179,6 +181,11 @@ def on_publish(client,userdata,result): #Callback function for MQTT
     print("data published \n")
     pass
 
+def exitHandler():
+    ser.close()
+    logging.info("Clean exit")
+    exit()
+
 #Run just for good measure, not sure if it will if I don't
 getServerStatus()
 
@@ -239,6 +246,6 @@ GrafConnected.place(x=25,y=200)
 SerialConnected.place(x=25,y=240)
 
 #Loop Functions
-ui.after(1000,refreshPorts) #Autorefreshes COM port dropdown every second
+ui.after(0,refreshPorts) #Autorefreshes COM port dropdown every second
+ui.protocol("WM_DELETE_WINDOW",exitHandler)
 ui.mainloop()
-logging.info("Program exited")
