@@ -1,9 +1,10 @@
 #Import libraries
 import tkinter as tk
-from tkinter import ttk
+from tkinter import Pack, Place, ttk
 from tkinter import messagebox
 import ctypes
 import threading
+from tkinter.constants import HORIZONTAL
 import serial.tools.list_ports
 import win32serviceutil as svc
 import paho.mqtt.client as mqtt
@@ -19,6 +20,7 @@ logging.basicConfig(filename=logPath,
                             format='%(asctime)s| %(levelname)s %(message)s',
                             datefmt='%m/%d/%Y %H:%M:%S',
                             level=logging.DEBUG)
+logging.addLevelName(9,"SERIAL")
 logging.info('Imports complete')
 
 try:
@@ -38,11 +40,10 @@ ports = serial.tools.list_ports.comports()
 ser = serial.Serial()
 goodBauds = (9600,14400,19200,115200)
 
-serverStat = "Not Running"
 serialStatus = "Not Connected"
 bothRunning = None
-run1 = '#51B7EB'
-run2 = '#D13539'
+run1 = '#51B7EB' #Windows Blue
+run2 = '#D13539' #Windows Red
 
 broker="127.0.0.1" #MQTT Server
 port=1883 #Server Port
@@ -132,7 +133,6 @@ def stopServices():#Stops Grafana and Mosquitto Broker
     try:
         svc.StopService("grafana")
         svc.StopService("mosquitto")
-        serverStat = "Not Running"
         messagebox.showinfo("Info","Services Stopped!")
         MQTTConnected["text"] = "MQTT Server: Not Running"
         GrafConnected["text"] = "Grafana Service: Not Running"
@@ -168,7 +168,7 @@ def getServerStatus(): #Attempts to see if services are already running. Doesn't
     ui.after(1000,getServerStatus)
  
 def handle_data(data): #Processes serial data
-    print(data)
+    logging.debug(data)
 
 def readData(): #Reads serial data
     while True:
