@@ -170,14 +170,14 @@ def getServerStatus(): #Attempts to see if services are already running. Doesn't
     ui.after(1000,getServerStatus)
  
 def handle_data(data): #Processes serial data
-    logging.debug(data)
+    logging.debug(data.strip())
 
 def readData(): #Reads serial data
     while True:
         serData = ser.readline().decode('utf-8')
         handle_data(serData)
 
-def on_publish(client,userdata,result): #Callback function for MQTT
+def on_publish(client, userdata, result): #Callback function for MQTT
     print("data published \n")
     pass
 
