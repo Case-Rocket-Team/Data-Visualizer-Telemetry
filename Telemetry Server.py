@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import Pack, Place, ttk
 from tkinter import messagebox
 import ctypes
+import random
 import threading
 from tkinter.constants import HORIZONTAL
 import serial.tools.list_ports
@@ -14,13 +15,11 @@ from elevate import elevate
 
 #Set up logging functionality
 logPath = 'C:\\Users\\catsl\\Documents\\Telemtry Dash\\log.txt'
-
 logging.basicConfig(filename=logPath,
                             filemode='w',
                             format='%(asctime)s| %(levelname)s %(message)s',
                             datefmt='%m/%d/%Y %H:%M:%S',
-                            level=logging.DEBUG)
-logging.addLevelName(9,"SERIAL")
+                            level=logging.INFO)
 logging.info('Imports complete')
 
 try:
@@ -34,7 +33,7 @@ except Exception as e:
     exit()
 
 #Variable Declarations
-appID = 'CRT.Telemetry.alpha1'
+appID = 'CRT.Telemetry.beta'
 
 ports = serial.tools.list_ports.comports()
 ser = serial.Serial()
@@ -45,13 +44,19 @@ bothRunning = None
 run1 = '#51B7EB' #Windows Blue
 run2 = '#D13539' #Windows Red
 
+#Setup MQTT
 broker="127.0.0.1" #MQTT Server
 port=1883 #Server Port
+mqttclient= mqtt.Client(appID)
+
+try:
+    mqttclient.connect(broker, port, keepalive=120)
+except Exception as e:
+    logging.warning("MQTT Connection Error: " + str(e))
 
 #Freaky Windows Shit
 ctypes.windll.shcore.SetProcessDpiAwareness(1) #Enables support for Hi-DPI displays.
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(appID) #Wizardry to make the taskbar icon to the main icon
-logging.debug("Mischief managed :)")
 
 #GUI Specific declarations
 ui = tk.Tk()
@@ -61,12 +66,6 @@ baudsel = tk.StringVar()
 big_frame = ttk.Frame(ui)
 big_frame.pack(fill="both", expand=True)
 
-try:
-    photo = tk.PhotoImage(file='C:\\Users\\catsl\\Documents\\Telemtry Dash\\refresh.png')
-except:
-    logging.error("Unable to import button icon. Does file exist?")
-
-
 #Functions in no particular order
 def refreshPorts(): #Checks available COM Ports and lists in dropdown
     ports = serial.tools.list_ports.comports()
@@ -74,7 +73,6 @@ def refreshPorts(): #Checks available COM Ports and lists in dropdown
     #COMdropdown.current(0)
     try:
         COMdropdown.current(0) #Attempts to list available port as first option
-        BaudSelect.current(0)
     except:
         COMdropdown.set("Select COM Port")
         BaudSelect.set("Select Baud Rate")
@@ -86,13 +84,14 @@ def connectPort(): #Connects to selected COM port
     ser.port = comnum[0:5]
     try:
         ser.open()
-        messagebox.showinfo("Info","Connected successfully to " + comnum[0:4])
+        messagebox.showinfo("Info","Connected successfully to " + comnum[0:5])
         button['state'] = tk.DISABLED
         button2['state'] = tk.NORMAL
         SerialConnected['foreground'] = '#51B7EB'
         SerialConnected['text'] = 'Serial: Connected'
-        thread = threading.Thread(target=readData, daemon=False)
-        thread.start()
+        serialThread = threading.Thread(target=readData, daemon=False)
+        serialThread.start()
+        logging.info("Connected successfully to " + str(comnum[0:5]))
     except serial.SerialException as e:
         messagebox.showerror("Serial Error",e)
         logging.error("Serial error " + str(e))
@@ -103,10 +102,11 @@ def closeSerial(): #Disconnects from serial
     comnum = COMdropdown.get()
     try:
         ser.close()
-        messagebox.showinfo("Info","Disconnected successfully from " + comnum[0:4])
+        messagebox.showinfo("Info","Disconnected successfully from " + comnum[0:5])
         SerialConnected['foreground'] = '#D13539'
         SerialConnected['text'] = 'Serial: Not Connected'
         COMdropdown.set("Select COM Port")
+        logging.info("Disconnected from " + str(comnum[0:5]))
     except serial.SerialException as e:
         logging.error("Serial error " + str(e))
         messagebox.showerror("Serial Error","Unable to close serial connection: " + str(e))  
@@ -125,6 +125,9 @@ def startServices(): #Starts Grafana and Mosquitto Broker
         MQTTConnected["foreground"] = "#51B7EB"
         GrafConnected["foreground"] = "#51B7EB"
         logging.info("Services Started")
+        logging.info("Connecting to MQTT Broker...")
+        mqttclient.connect(broker, port)
+        logging.info("Connected")
     except:
         messagebox.showerror("Error","Unable to start services or services already running.")
         logging.error("Unable to start services or services already running.")
@@ -167,37 +170,36 @@ def getServerStatus(): #Attempts to see if services are already running. Doesn't
         mosqServer = "Not Running"
     elif mosqStatus[1] == 4:
         mosqServer = "Running"
-    ui.after(1000,getServerStatus)
+getServerStatus()
  
-def handle_data(data): #Processes serial data
-    logging.debug(data.strip())
-
 def readData(): #Reads serial data
     while True:
         serData = ser.readline().decode('utf-8')
         handle_data(serData)
 
-def on_publish(client, userdata, result): #Callback function for MQTT
-    print("data published \n")
-    pass
+def handle_data(data): #Processes serial data
+    pdata = data.rstrip().strip("[]").split(",")
+    mqttclient.publish("sensor/height", int(pdata[0]),retain=False)
+    mqttclient.publish("sensor/lat", float(pdata[1]),retain=False)
+    mqttclient.publish("sensor/lng", float(pdata[2]),retain=False)
+    mqttclient.publish("sensor/temperature", float(pdata[3]),retain=False)
 
 def exitHandler():
     ser.close()
-    logging.info("Clean exit")
+    mqttclient.disconnect()
+    logging.info("Exiting")
     exit()
-
-#Run just for good measure, not sure if it will if I don't
-getServerStatus()
 
 #Create UI
 try:
-    ui.tk.call("source", "C:\\Users\\catsl\\Documents\\Telemtry Dash\\Sun-Valley-ttk-theme-master\sun-valley.tcl")
+    ui.tk.call("source", "C:\\Users\\catsl\\Documents\\Telemtry Dash\\Sun-Valley-ttk-theme-master\\sun-valley.tcl")
     ui.tk.call("set_theme", "dark")
+    logging.info("Imported and applied theme")
 except Exception as e:
     logging.warning("Unable to set Tkinter theme. Error: " + str(e))
 
 ui.resizable(False, False)
-ui.title("Telemetry - Serial to MQTT")
+ui.title("Telemetry Bridge")
 ui.geometry("625x300")
 ui.after(0,setIcon)
 logging.info('UI Created')
@@ -217,9 +219,6 @@ button3.place(x=435,y=160)
 button4 = ttk.Button(big_frame, text="Stop Services 🛑",command=stopServices)
 button4.place(x=435,y=230)
 
-button5 = ttk.Button(big_frame, image = photo,command=refreshPorts,style="Accent.TButton")
-button5.place(x=405,y=25)
-
 #Dropdowns
 COMdropdown = ttk.Combobox(big_frame,textvariable=widget_var)
 BaudSelect = ttk.Combobox(big_frame,textvariable=baudsel)
@@ -232,7 +231,7 @@ SerialConnected = ttk.Label(ui, text="Serial: " + serialStatus,foreground=run2)
 #Configure dropdowns and labels
 COMdropdown['values'] = ports #Populates COM Dropdown with available ports
 COMdropdown['state'] = 'readonly'
-COMdropdown.config(width=30)
+COMdropdown.config(width=36)
 COMdropdown.place(x=25,y=25)
 
 BaudSelect.set("Select Baud Rate")
@@ -246,6 +245,6 @@ GrafConnected.place(x=25,y=200)
 SerialConnected.place(x=25,y=240)
 
 #Loop Functions
-ui.after(0,refreshPorts) #Autorefreshes COM port dropdown every second
+ui.after(0,refreshPorts) #Autorefreshes COM ports
 ui.protocol("WM_DELETE_WINDOW",exitHandler)
 ui.mainloop()

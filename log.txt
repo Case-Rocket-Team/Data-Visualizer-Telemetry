@@ -1,0 +1,7 @@
+01/16/2022 17:25:18| INFO Imports complete
+01/16/2022 17:25:18| INFO Successfully elevated privileges
+01/16/2022 17:25:18| INFO Imported and applied theme
+01/16/2022 17:25:18| INFO UI Created
+01/16/2022 17:25:23| INFO Connected successfully to COM11
+01/16/2022 17:26:30| INFO Disconnected from COM11
+01/16/2022 17:26:41| INFO Exiting
