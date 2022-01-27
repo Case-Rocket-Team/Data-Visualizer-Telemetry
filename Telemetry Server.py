@@ -1,11 +1,10 @@
 #Import libraries
 import tkinter as tk
-from tkinter import Pack, Place, ttk
+from tkinter import ttk
 from tkinter import messagebox
 import ctypes
-import random
 import threading
-from tkinter.constants import HORIZONTAL
+#from tkinter.constants import HORIZONTAL
 import serial.tools.list_ports
 import win32serviceutil as svc
 import paho.mqtt.client as mqtt
@@ -37,7 +36,7 @@ appID = 'CRT.Telemetry.beta'
 
 ports = serial.tools.list_ports.comports()
 ser = serial.Serial()
-goodBauds = (9600,14400,19200,115200)
+goodBauds = (9600,14400,19200,115200,460800,921600)
 
 serialStatus = "Not Connected"
 bothRunning = None
